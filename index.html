@@ -124,11 +124,11 @@
       });
     }
 
-    onSnapshot(collection(db, "almacenes/Almacen_Desechable/entradas"), snap => {
+    onSnapshot(collection(db, "almacenes/Almacen_Descechable/entradas"), snap => {
       renderPorFolio(snap, entradasContainer);
     });
 
-    onSnapshot(collection(db, "almacenes/Almacen_Desechable/salidas"), snap => {
+    onSnapshot(collection(db, "almacenes/Almacen_Descechable/salidas"), snap => {
       renderPorFolio(snap, salidasContainer);
     });
 
