@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Monitoreo Entradas/Salidas - Almacén Desechables</title>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; background: #f4f4f4; padding: 20px; }
+    h2 { text-align: center; margin-bottom: 20px; }
+    .accordion { max-width: 800px; margin: 0 auto 20px auto; background: #fff; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); overflow: hidden; }
+    .accordion-header { padding: 16px; background-color: #e60000; color: #fff; font-weight: bold; cursor: pointer; user-select: none; }
+    .accordion-header.salidas { background-color: #003366; }
+    .accordion-content { display: none; padding: 16px; background-color: #fafafa; }
+    .accordion-content p { margin: 6px 0; padding: 8px; border-bottom: 1px solid #ccc; }
+    .registro { font-size: 14px; }
+    .open .accordion-content { display: block; }
+    .sub-acordeon { border-bottom: 1px solid #ccc; padding: 5px 10px; }
+    .sub-acordeon-header { background-color: #eee; padding: 8px; font-weight: bold; cursor: pointer; }
+    .sub-acordeon-content p { margin: 5px 0; padding-left: 10px; font-size: 14px; }
+    #bloqueo { text-align: center; margin-top: 100px; }
+    #bloqueo input { padding: 10px; font-size: 16px; width: 200px; }
+    #bloqueo button { padding: 10px 20px; font-size: 16px; margin-top: 10px; cursor: pointer; }
+    #errorPIN { color: red; margin-top: 10px; }
+  </style>
+</head>
+<body>
+
+  <!-- BLOQUEO CON PIN -->
+  <div id="bloqueo">
+    <h2>🔒 Acceso Restringido</h2>
+    <p>Ingresa el PIN para acceder al monitoreo de salidas:</p>
+    <input type="password" id="pinInput" placeholder="Ingresa PIN">
+    <br>
+    <button onclick="verificarPIN()">Ingresar</button>
+    <p id="errorPIN"></p>
+  </div>
+
+  <!-- CONTENIDO PROTEGIDO -->
+  <div id="contenidoProtegido" style="display:none;">
+    <h2>Monitoreo de Entradas y Salidas - Almacén Desechables</h2>
+
+    <div class="accordion" id="entradasAcordeon">
+      <div class="accordion-header">🟢 ENTRADAS</div>
+      <div class="accordion-content" id="entradasContenido"><p>Cargando...</p></div>
+    </div>
+
+    <div class="accordion" id="salidasAcordeon">
+      <div class="accordion-header salidas">🔴 SALIDAS</div>
+      <div class="accordion-content" id="salidasContenido"><p>Cargando...</p></div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import { getFirestore, collection, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCK5nb6u2CGRJ8AB1aPlRn54b97bdeAFeM",
+      authDomain: "inventariopv-643f1.firebaseapp.com",
+      projectId: "inventariopv-643f1",
+      storageBucket: "inventariopv-643f1.appspot.com",
+      messagingSenderId: "96242533231",
+      appId: "1:96242533231:web:aae75a18fbaf9840529e9a"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    const entradasContainer = document.getElementById("entradasContenido");
+    const salidasContainer = document.getElementById("salidasContenido");
+
+    function renderPorFolio(snapshot, container) {
+      container.innerHTML = "";
+
+      if (snapshot.empty) {
+        container.innerHTML = "<p>No hay registros.</p>";
+        return;
+      }
+
+      const folios = {};
+
+      snapshot.forEach(doc => {
+        const d = doc.data();
+        const folio = d.folio || d.folio_num || "SIN FOLIO";
+        if (!folios[folio]) folios[folio] = [];
+        folios[folio].push({
+          concepto: d.descripcion || d.concepto || "Sin nombre",
+          cantidad: d.cantidad || 0,
+          codigo: d.codigo || "N/A",
+          fecha: d.fecha || "Sin fecha",
+          sucursal: d.sucursal || "Sucursal desconocida"
+        });
+      });
+
+      Object.entries(folios).sort().reverse().forEach(([folio, productos]) => {
+        const grupo = document.createElement("div");
+        grupo.classList.add("sub-acordeon");
+
+        const encabezado = document.createElement("div");
+        encabezado.className = "sub-acordeon-header";
+        encabezado.textContent = `▶ Folio ${folio} (${productos.length} productos)`;
+
+        const contenido = document.createElement("div");
+        contenido.className = "sub-acordeon-content";
+        contenido.style.display = "none";
+
+        productos.forEach(p => {
+          const item = document.createElement("p");
+          item.textContent = `▸ ${p.fecha} | ${p.concepto} | ${p.cantidad} pzas | Código: ${p.codigo} | Sucursal: ${p.sucursal}`;
+          contenido.appendChild(item);
+        });
+
+        encabezado.addEventListener("click", () => {
+          const visible = contenido.style.display === "block";
+          contenido.style.display = visible ? "none" : "block";
+          encabezado.textContent = `${visible ? '▶' : '▼'} Folio ${folio} (${productos.length} productos)`;
+        });
+
+        grupo.appendChild(encabezado);
+        grupo.appendChild(contenido);
+        container.appendChild(grupo);
+      });
+    }
+
+    onSnapshot(collection(db, "almacenes/Almacen_Desechables/entradas"), snap => {
+      renderPorFolio(snap, entradasContainer);
+    });
+
+    onSnapshot(collection(db, "almacenes/Almacen_Desechables/salidas"), snap => {
+      renderPorFolio(snap, salidasContainer);
+    });
+
+    document.querySelectorAll('.accordion').forEach(ac => {
+      ac.querySelector('.accordion-header').addEventListener('click', () => {
+        ac.classList.toggle('open');
+      });
+    });
+
+    // 🔐 PIN de acceso
+    window.verificarPIN = function () {
+      const pinCorrecto = "protec25";
+      const pinIngresado = document.getElementById("pinInput").value;
+      const error = document.getElementById("errorPIN");
+
+      if (pinIngresado === pinCorrecto) {
+        document.getElementById("bloqueo").style.display = "none";
+        document.getElementById("contenidoProtegido").style.display = "block";
+      } else {
+        error.textContent = "❌ PIN incorrecto. Intenta nuevamente.";
+      }
+    };
+  </script>
+</body>
+</html>
